@@ -1,0 +1,13 @@
+OASISFormat: 0.4
+Name:        theMovieDb
+Version:     0.8
+Synopsis:    API for TheMovieDb.org website
+Authors:     Marc Simon <marc.simon42@gmail.com>
+License:     MIT
+Plugins:     META (0.4), StdFiles (0.4), DevFiles (0.4)
+
+Library "theMovieDb"
+  Path:       src
+  BuildTools: ocamlbuild
+  Modules:    TheMovieDb, TheMovieDbHttp, TheMovieDbConfig
+  BuildDepends : threads,ocsigenserver,deriving-yojson,deriving-yojson.syntax,yojson,deriving,deriving.syntax,lwt,lwt.syntax

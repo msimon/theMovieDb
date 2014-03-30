@@ -1,0 +1,13 @@
+# OASIS_START
+# DO NOT EDIT (digest: d33aa581fea50214226a4891db982303)
+version = "0.8"
+description = "API for TheMovieDb.org website"
+requires =
+"threads ocsigenserver deriving-yojson deriving-yojson.syntax yojson deriving deriving.syntax lwt lwt.syntax"
+archive(byte) = "theMovieDb.cma"
+archive(byte, plugin) = "theMovieDb.cma"
+archive(native) = "theMovieDb.cmxa"
+archive(native, plugin) = "theMovieDb.cmxs"
+exists_if = "theMovieDb.cma"
+# OASIS_STOP
+
