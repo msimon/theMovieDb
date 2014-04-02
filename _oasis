@@ -6,8 +6,21 @@ Authors:     Marc Simon <marc.simon42@gmail.com>
 License:     MIT
 Plugins:     META (0.4), StdFiles (0.4), DevFiles (0.4)
 
+Flag utest
+  Description: build the test
+  Default: false
+
 Library "theMovieDb"
   Path:       src
   BuildTools: ocamlbuild
   Modules:    TheMovieDb, TheMovieDbHttp, TheMovieDbConfig
   BuildDepends : threads,ocsigenserver,deriving-yojson,deriving-yojson.syntax,yojson,deriving,deriving.syntax,lwt,lwt.syntax
+
+Executable test
+  Build$: flag(utest)
+  Path: test
+  MainIs: test.ml
+  Install: false
+  BuildDepends: oUnit (>= 2.0.0), theMovieDb, threads,lwt,lwt.syntax
+  BuildTools:    ocamlbuild
+  CompiledObject: native

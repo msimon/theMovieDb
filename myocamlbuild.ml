@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 9946f4d06e21bfcbc347738ac373ae12) *)
+(* DO NOT EDIT (digest: 7b538c26286700485d2ca79c0cbd5a84) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -558,7 +558,7 @@ let package_default =
      MyOCamlbuildBase.lib_ocaml = [("theMovieDb", ["src"], [])];
      lib_c = [];
      flags = [];
-     includes = []
+     includes = [("test", ["src"])]
   }
   ;;
 

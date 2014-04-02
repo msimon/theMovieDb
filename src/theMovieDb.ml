@@ -91,6 +91,8 @@ module Change = struct
     | Created of Movie.t
     | Updated of Movie.t
     | Deleted of int
+    | Not_found of int
+    | Error of (string * int)
           deriving (Yojson)
 
 end
@@ -113,10 +115,18 @@ let fetch_movie config uid =
 
 let fetch_genres config =
   lwt s = Http.build_url config ~uri:"/3/genre/list" in
-  let g = (let module M = Deriving_Yojson.Yojson_list(Genre.Yojson_t) in
-           M.from_string) s
-  in
-  Lwt.return g
+  match Yojson.Safe.from_string s with
+    | `Assoc l -> begin
+        try
+          let g = List.assoc "genres" l in
+          let g = (let module M = Deriving_Yojson.Yojson_list(Genre.Yojson_t) in
+                   M.from_json) g
+          in
+          Lwt.return g
+        with _ ->
+          failwith "Wrong json value"
+      end
+    | _ -> failwith "Wrong json value"
 
 (* fetch movie change + if created/update fetch new movie value *)
 let fetch_movie_change config uid=
@@ -126,21 +136,28 @@ let fetch_movie_change config uid=
         | `String "created" -> `Created
         | `String "updated" -> `Updated
         | `String "deleted" -> `Deleted
-        | _ ->  failwith "Wrong json value"
+        | `String "destroyed" -> `Deleted
+        | _ ->  failwith "Wrong json value 1"
     in
 
     let rec get_action =
       function
         | (`Assoc h)::t ->
           if List.assoc "key" h = `String "general" then begin
-            match List.assoc "value" h with
-              | `Assoc v ->
-                action_of_string (List.assoc "action" v)
-              | _ -> failwith "Wrong json value"
+            match List.assoc "items" h with
+              | `List l ->
+                begin match List.nth l 0 with
+                  | `Assoc v ->
+                    action_of_string (List.assoc "action" v)
+                  | _ ->
+                    failwith "Wrong json value 2"
+                end
+              | _ -> failwith "Wrong json value 2"
           end else
             get_action t
         | _ ->
-          failwith "Wrong json value"
+          (* if the general key is not given then its an update *)
+          `Updated
     in
 
     match j with
@@ -151,22 +168,30 @@ let fetch_movie_change config uid=
               | `List js ->
                 get_action js
               | _ ->
-                failwith "Wrong json value"
-          with _ ->
-            failwith "Wrong json value"
+                failwith "Wrong json value 3"
+          with e ->
+            failwith (Printf.sprintf "Wrong json value 4, %s , %d" (Printexc.to_string e) uid)
         end
-      | _ -> failwith "Wrong json value"
+      | _ -> failwith "Wrong json value 5"
   in
 
   lwt s = Http.build_url config ~uri:(Printf.sprintf "/3/movie/%d/changes" uid) in
+
   let json = Yojson.Basic.from_string s in
+
+  let fetch_movie _ =
+    try_lwt
+      fetch_movie config uid
+    with Not_found ->
+      raise Not_found
+  in
 
   match get_change_type json with
     | `Created ->
-      lwt m = fetch_movie config uid in
+      lwt m = fetch_movie () in
       Lwt.return (Change.Created m)
     | `Updated ->
-      lwt m = fetch_movie config uid in
+      lwt m = fetch_movie () in
       Lwt.return (Change.Updated m)
     | `Deleted ->
       Lwt.return (Change.Deleted uid)
@@ -207,17 +232,20 @@ let fetch_movie_changes ?start_date ?end_date ?page config =
   Lwt.return (Change.Yojson_t.from_string s)
 
 
-let fetch_all_movie_changes ?start_date ?end_date config =
+let fetch_all_movie_changes ?start_date ?end_date config : 'a list Lwt.t =
   lwt c = fetch_movie_changes ?start_date ?end_date ~page:1 config in
 
   let page_to_fetch = c.Change.total_pages in
-  let total_results = c.Change.total_results in
 
   let rec fetch acc page =
     if page <= 1 then acc
     else begin
       let c = fetch_movie_changes ?start_date ?end_date ~page config in
-      fetch (c::acc) (page - 1)
+      Lwt.async (fun _ ->
+          lwt c = c in
+          Lwt.return_unit;
+        );
+        fetch (c::acc) (page - 1)
     end
   in
 
@@ -232,9 +260,6 @@ let fetch_all_movie_changes ?start_date ?end_date config =
     ) l
   in
 
-  if List.length !changes <> total_results then
-    failwith "fetch_full_movie_changes failed";
-
   Lwt.return !changes
 
 
@@ -244,9 +269,16 @@ let apply_all_movie_changes ?f ?start_date ?end_date config =
   let acc = ref [] in
 
   let rec fetch_change n =
-    try
+    try_lwt
       let c = List.nth changes n in
-      lwt m = fetch_movie_change config c.Change.id in
+
+      lwt m =
+        try_lwt
+          fetch_movie_change config c.Change.id
+        with
+          | Not_found -> Lwt.return (Change.Not_found c.Change.id)
+          | exn -> Lwt.return (Change.Error ((Printexc.to_string exn), c.Change.id))
+      in
 
       lwt _ = match f with
         | Some f -> f m
@@ -255,8 +287,11 @@ let apply_all_movie_changes ?f ?start_date ?end_date config =
 
       acc := m::!acc;
       fetch_change (n + config.max_concurrent_connection)
-    with Invalid_argument _ ->
-      Lwt.return_unit
+    with
+      | Failure "nth" ->
+        Lwt.return_unit
+      | exn ->
+        Lwt.return_unit
   in
 
   let rec generate_thread n acc =
@@ -267,4 +302,4 @@ let apply_all_movie_changes ?f ?start_date ?end_date config =
 
   lwt _ = Lwt.join (generate_thread 0 []) in
 
-  Lwt.return acc
+  Lwt.return !acc

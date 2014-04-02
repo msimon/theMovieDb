@@ -14,7 +14,7 @@ type t = {
 
 
 let create
-    ?(api_url="http://api.themoviedb.org/3/")
+    ?(api_url="http://api.themoviedb.org")
     ?(request_per_second=3.0)
     ?(max_concurrent_connection=5)
     ?(debug_display_correct_response=false)

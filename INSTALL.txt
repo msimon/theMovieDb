@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 48dfd0dad97adc3cd00fd9fa57cc34e5) *)
+(* DO NOT EDIT (digest: ab3d044438951019f02272e85d16cf67) *)
 This is the INSTALL file for the theMovieDb distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
@@ -11,11 +11,12 @@ Dependencies
 In order to compile this package, you will need:
 * ocaml
 * findlib
-* ocsigenserver
-* deriving-yojson
-* yojson
-* deriving
+* ocsigenserver for library theMovieDb
+* deriving-yojson for library theMovieDb
+* yojson for library theMovieDb
+* deriving for library theMovieDb
 * lwt
+* oUnit (>= 2.0.0) for executable test
 
 Installing
 ==========
